@@ -1,0 +1,1 @@
+"Escolhi Python (Flask) para o backend devido à sua integração nativa com o SDK da AWS (Boto3) para serviços Serverless. O frontend em React permite uma interface reativa para os critérios de complexidade. A decisão por DynamoDB com TTL visa atender o requisito 4 de forma nativa e segura, garantindo que o dado seja eliminado fisicamente sem intervenção manual após o prazo."

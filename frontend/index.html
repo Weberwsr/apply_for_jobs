@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeVault TOTVS</title>
+
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 min-h-screen font-sans text-gray-700">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        function App() {
+            const params = new URLSearchParams(window.location.search);
+            const viewId = params.get('id');
+            return viewId ? <ViewScreen id={viewId} /> : <GenerateScreen />;
+        }
+
+        function ViewScreen({ id }) {
+            const [data, setData] = React.useState(null);
+            const [error, setError] = React.useState('');
+
+            React.useEffect(() => {
+                fetch(`http://127.0.0.1:5000/pwd/${id}`)
+                    .then(res => res.json().then(d => ({ ok: res.ok, data: d })))
+                    .then(res => {
+                        if (!res.ok) setError(res.data.error || "Senha indisponível.");
+                        else setData(res.data);
+                    })
+                    .catch(() => setError("Não foi possível conectar ao servidor."));
+            }, [id]);
+
+            return (
+                <div className="max-w-md mx-auto mt-20 p-8 bg-white rounded-2xl shadow-xl border-t-8 border-blue-600 text-center">
+                    <h2 className="text-lg font-semibold mb-6 tracking-wide">
+                        Visualização segura
+                    </h2>
+
+                    {error && (
+                        <div className="p-4 bg-red-50 text-red-600 rounded-lg text-sm font-semibold border-l-4 border-red-500">
+                            {error}
+                        </div>
+                    )}
+
+                    {data && (
+                        <div>
+                            <p className="text-xs text-gray-400 mb-2">
+                                Senha compartilhada
+                            </p>
+
+                            <div className="bg-blue-50 p-6 rounded-xl border border-blue-200 font-mono text-xl text-blue-700 break-all select-all">
+                                {data.password}
+                            </div>
+
+                            <p className="mt-4 text-[11px] text-orange-600 font-semibold">
+                                Esta senha será automaticamente destruída após {data.views_remaining} visualização(ões) ou ao expirar o prazo.
+                            </p>
+                        </div>
+                    )}
+
+                    {!error && !data && (
+                        <p className="text-sm text-gray-500">Consultando ambiente seguro…</p>
+                    )}
+
+                    <a
+                        href={window.location.origin + window.location.pathname}
+                        className="block mt-8 text-sm text-blue-500 hover:underline"
+                    >
+                        Voltar ao início
+                    </a>
+                </div>
+            );
+        }
+
+        function GenerateScreen() {
+            const [form, setForm] = React.useState({
+                password: '',
+                length: 12,
+                viewLimit: 1,
+                expirationSeconds: 3600
+            });
+
+            const [url, setUrl] = React.useState('');
+            const [erro, setErro] = React.useState('');
+
+            const handleGerar = async (isAuto = false) => {
+                setErro('');
+                setUrl('');
+
+                const payload = isAuto ? { ...form, password: '' } : form;
+
+                try {
+                    const res = await fetch('http://127.0.0.1:5000/pwd', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || "Erro ao gerar senha.");
+
+                    const baseUrl = window.location.href.split('?')[0];
+                    setUrl(`${baseUrl}?id=${data.id}`);
+                } catch (e) {
+                    setErro(e.message);
+                }
+            };
+
+            return (
+                <div className="max-w-lg mx-auto mt-12 p-8 bg-white rounded-2xl shadow-xl border-t-8 border-orange-500">
+                    <header className="text-center mb-8">
+                        <h1 className="text-2xl font-bold tracking-tight">
+                            TOTVS <span className="text-orange-500">SafeVault</span>
+                        </h1>
+
+                        <div className="mt-4 px-4 py-2 bg-blue-50 border border-blue-100 rounded text-[11px] text-blue-700">
+                            Mínimo de 12 caracteres, combinando letras, números e caracteres especiais (@#$%).
+                        </div>
+                    </header>
+
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-xs font-semibold mb-2">
+                                Digite sua senha
+                            </label>
+                            <input
+                                type="text"
+                                value={form.password}
+                                placeholder="Exemplo: ********"
+                                className="w-full border-2 p-3 rounded-xl focus:border-orange-500 outline-none"
+                                onChange={e => setForm({ ...form, password: e.target.value })}
+                            />
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => handleGerar(false)}
+                                className="flex-1 bg-orange-500 text-white py-4 rounded-xl font-semibold hover:bg-orange-600 transition"
+                            >
+                                Usar minha senha
+                            </button>
+
+                            <button
+                                onClick={() => handleGerar(true)}
+                                className="flex-1 bg-gray-800 text-white py-4 rounded-xl font-semibold hover:bg-black transition"
+                            >
+                                Gerar automaticamente
+                            </button>
+                        </div>
+
+                        <div className="bg-gray-50 p-5 rounded-xl border space-y-4">
+                            <label className="block">
+                                <div className="flex justify-between text-xs font-semibold mb-1">
+                                    <span>Visualizações</span>
+                                    <span className="text-orange-600">{form.viewLimit}x</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="10"
+                                    value={form.viewLimit}
+                                    className="w-full h-2 bg-orange-200 rounded-lg cursor-pointer"
+                                    onChange={e => setForm({ ...form, viewLimit: parseInt(e.target.value) })}
+                                />
+                            </label>
+
+                            <label className="block">
+                                <div className="flex justify-between text-xs font-semibold mb-1">
+                                    <span>Validade</span>
+                                    <span>{Math.round(form.expirationSeconds / 3600)}h</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="10"
+                                    max="172800"
+                                    step="10"
+                                    value={form.expirationSeconds}
+                                    className="w-full h-2 bg-orange-200 rounded-lg cursor-pointer"
+                                    onChange={e => setForm({ ...form, expirationSeconds: parseInt(e.target.value) })}
+                                />
+                            </label>
+                        </div>
+
+                        {erro && (
+                            <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm font-semibold border-l-4 border-red-500">
+                                {erro}
+                            </div>
+                        )}
+
+                        {url && (
+                            <div className="p-4 bg-green-50 border border-green-200 rounded-xl break-all">
+                                <p className="text-xs font-semibold text-green-600 mb-2">
+                                    Link seguro gerado
+                                </p>
+                                <a href={url} target="_blank" className="text-sm font-mono text-blue-600 underline">
+                                    {url}
+                                </a>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
